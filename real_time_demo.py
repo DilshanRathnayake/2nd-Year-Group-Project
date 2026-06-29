@@ -29,7 +29,7 @@ ENTROPY_THRESHOLD = 3.50
 NO_HAND_RESET_FRAMES = 15
 
 # ── Paths ─────────────────────────────────────
-WEIGHTS_PATH      = r"C:/Users/Lenovo/Desktop/2nd_Group/best_model_weights.weights_new.h5"
+WEIGHTS_PATH      = r"C:/Users/Lenovo/Desktop/2nd_Group/models/best_model_weights.weights_new.h5"
 KEYPOINTS_PATH    = r"C:/Users/Lenovo/Desktop/2nd_Group/dataset_keypoints_hands_only"
 SINHALA_FONT_PATH = r"C:/Users/Lenovo/Desktop/2nd_Group/fonts/NotoSansSinhala-Regular.ttf"
 ENGLISH_FONT_PATH = r"C:/Users/Lenovo/Desktop/2nd_Group/fonts/arial.ttf"
