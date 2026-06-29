@@ -1,51 +1,3 @@
-# real_time_demo.py — UPGRADED FOR PRECISE REAL-TIME SIGN DETECTION
-"""
-KEY IMPROVEMENTS OVER OLD real_time_demo.py:
-─────────────────────────────────────────────────────────────────────
-1. LOWER START THRESHOLD: 0.82 → 0.65
-   Old code required 82% confidence to show any label. This was too
-   strict — real-world signs rarely reach 82% on first appearance.
-   New 65% threshold catches valid signs without false positives.
-
-2. ENTROPY-BASED UNCERTAINTY FILTER (replaces movement filter)
-   Old: std < 0.015 → "No movement" (missed slow signs like "ස්තූතියි")
-   New: entropy of softmax output > 3.5 → "Uncertain"
-   Entropy measures how spread-out the prediction is across all 53
-   classes. A confident prediction is PEAKED (low entropy). An
-   uncertain prediction is FLAT (high entropy). This is far more
-   reliable than checking pixel movement.
-
-3. MAJORITY VOTE SMOOTHING (replaces weighted-sum smoothing)
-   Old: weighted probability sum over 8 frames — biased towards
-        the class with highest raw confidence (not most frequent).
-   New: Count how many frames in the last 6 predict each class.
-        The class predicted in most frames wins (majority vote).
-        This prevents a single high-confidence wrong frame from
-        overriding 5 correct frames.
-
-4. SIGN LOCKED STATE (prevents flickering)
-   Once a sign is confirmed and displayed, it stays locked for
-   LOCK_HOLD_FRAMES (12) additional frames UNLESS a NEW high-
-   confidence prediction appears. This eliminates flickering
-   between similar signs.
-
-5. CONFIDENCE BAR  (visual debugging)
-   A coloured confidence bar is drawn on the frame:
-     - Green (>65%) = confident prediction
-     - Orange (45–65%) = borderline
-     - Red (<45%) = uncertain
-   This lets you see in real time WHY the model is hesitating.
-
-6. TOP-3 DISPLAY  (press 'D' to toggle debug mode)
-   In debug mode, the top 3 predicted classes and their
-   confidences are shown. Useful to spot confusion between signs.
-
-7. SEQUENCE RESET ON BOTH HANDS GONE (prevents stale sequence)
-   Old: Only replaced keypoints with last_valid_keypoints.
-   New: If BOTH hands absent for >15 frames → clear sequence.
-   Prevents ghost predictions from a sign done several seconds ago.
-─────────────────────────────────────────────────────────────────────
-"""
 
 import cv2
 import numpy as np
@@ -63,27 +15,24 @@ SEQ_LENGTH   = 30
 NUM_FEATURES = 128
 
 # Confidence thresholds
-START_CONF_THRESHOLD = 0.65   # Min confidence to SHOW a new sign
-HOLD_CONF_THRESHOLD  = 0.42   # Min confidence to KEEP showing the sign
-LOCK_HOLD_FRAMES     = 12     # Hold a confirmed sign for this many extra frames
+START_CONF_THRESHOLD = 0.65   
+HOLD_CONF_THRESHOLD  = 0.42   
+LOCK_HOLD_FRAMES     = 12     
 
 # Prediction smoothing
-SMOOTH_WINDOW  = 6     # Number of recent frames used for majority vote
-PREDICT_STRIDE = 1     # Predict every frame (keeps display responsive)
+SMOOTH_WINDOW  = 6     
+PREDICT_STRIDE = 1     
 
-# Entropy threshold for "uncertain" state
-# Max entropy for 53 classes = ln(53) ≈ 3.97
-# If prediction entropy > ENTROPY_THRESHOLD → model is unsure
+
 ENTROPY_THRESHOLD = 3.50
 
-# Reset sequence after this many frames with no hands visible
 NO_HAND_RESET_FRAMES = 15
 
 # ── Paths ─────────────────────────────────────
-WEIGHTS_PATH      = r"C:/Users/Lenovo/Desktop/GRU+LSTM_/models/best_model_weights.weights_new.h5"
-KEYPOINTS_PATH    = r"C:/Users/Lenovo/Desktop/GRU+LSTM_/dataset_keypoints_hands_only"
-SINHALA_FONT_PATH = r"C:/Users/Lenovo/Desktop/GRU+LSTM_/fonts/NotoSansSinhala-Regular.ttf"
-ENGLISH_FONT_PATH = r"C:/Users/Lenovo/Desktop/GRU+LSTM_/fonts/arial.ttf"
+WEIGHTS_PATH      = r"C:/Users/Lenovo/Desktop/2nd_Group/best_model_weights.weights_new.h5"
+KEYPOINTS_PATH    = r"C:/Users/Lenovo/Desktop/2nd_Group/dataset_keypoints_hands_only"
+SINHALA_FONT_PATH = r"C:/Users/Lenovo/Desktop/2nd_Group/fonts/NotoSansSinhala-Regular.ttf"
+ENGLISH_FONT_PATH = r"C:/Users/Lenovo/Desktop/2nd_Group/fonts/arial.ttf"
 
 # ─────────────────────────────────────────────
 #  LOAD MODEL & CLASSES
@@ -161,7 +110,6 @@ english_font_sm   = ImageFont.truetype(ENGLISH_FONT_PATH, 24)
 #  KEYPOINT EXTRACTION  (unchanged from extract_keypoints.py)
 # ─────────────────────────────────────────────
 def normalize_hand(hand_landmarks):
-    """Normalize hand keypoints relative to wrist, unit-scale."""
     if hand_landmarks is None:
         return np.zeros(63), 0
     hand = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark])
@@ -181,11 +129,7 @@ def extract_keypoints(results):
 #  HELPER: PREDICTION ENTROPY
 # ─────────────────────────────────────────────
 def softmax_entropy(probs: np.ndarray) -> float:
-    """
-    Computes Shannon entropy of a softmax probability vector.
-    Low entropy (< 2.0) = peaked distribution = confident model.
-    High entropy (> 3.5) = flat distribution = uncertain model.
-    """
+    
     probs = np.clip(probs, 1e-9, 1.0)
     return float(-np.sum(probs * np.log(probs)))
 
@@ -193,37 +137,34 @@ def softmax_entropy(probs: np.ndarray) -> float:
 #  HELPER: DRAW CONFIDENCE BAR
 # ─────────────────────────────────────────────
 def draw_confidence_bar(frame, conf: float, x=30, y=100, w=300, h=20):
-    """
-    Draws a coloured horizontal bar showing prediction confidence.
-    Green > 65% | Orange 45–65% | Red < 45%
-    """
+    
     filled = int(conf * w)
     color = (0, 200, 0) if conf >= 0.65 else (0, 165, 255) if conf >= 0.45 else (0, 0, 220)
-    cv2.rectangle(frame, (x, y), (x + w, y + h), (50, 50, 50), -1)        # bg
-    cv2.rectangle(frame, (x, y), (x + filled, y + h), color, -1)           # fill
-    cv2.rectangle(frame, (x, y), (x + w, y + h), (200, 200, 200), 1)       # border
+    cv2.rectangle(frame, (x, y), (x + w, y + h), (50, 50, 50), -1)        
+    cv2.rectangle(frame, (x, y), (x + filled, y + h), color, -1)           
+    cv2.rectangle(frame, (x, y), (x + w, y + h), (200, 200, 200), 1)       
     cv2.putText(frame, f"{conf*100:.0f}%", (x + w + 8, y + h - 2),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
 
 # ─────────────────────────────────────────────
 #  STATE VARIABLES
 # ─────────────────────────────────────────────
-seq                 = []                          # Rolling sequence buffer
-pred_deque          = deque(maxlen=SMOOTH_WINDOW) # Stores (idx, conf) tuples
-last_valid_kp       = np.zeros(NUM_FEATURES)      # Last keypoint with hands
+seq                 = []                          
+pred_deque          = deque(maxlen=SMOOTH_WINDOW) 
+last_valid_kp       = np.zeros(NUM_FEATURES)      
 
 # Hysteresis state
-active_label_idx    = None     # Currently displayed class index
-active_conf         = 0.0      # Confidence of active label
-lock_frames_left    = 0        # Frames to keep label locked after detection
+active_label_idx    = None     
+active_conf         = 0.0      
+lock_frames_left    = 0       
 
 # No-hand tracking
-no_hand_frames      = 0        # Consecutive frames with no hands detected
+no_hand_frames      = 0        
 
 # Display state
 display_text        = "Show a sign..."
 display_sinhala     = False
-debug_mode          = False    # Toggle with 'D' key
+debug_mode          = False   
 
 frame_counter       = 0
 
@@ -264,11 +205,9 @@ while True:
 
     if both_hands_absent:
         no_hand_frames += 1
-        # Use last valid keypoints so partial occlusion doesn't break seq
         if np.any(last_valid_kp):
             keypoints = last_valid_kp.copy()
 
-        # If hands absent for too long → reset everything
         if no_hand_frames >= NO_HAND_RESET_FRAMES:
             seq.clear()
             pred_deque.clear()
@@ -300,11 +239,8 @@ while True:
             entropy   = softmax_entropy(pred)
 
             # ── ENTROPY GATE ─────────────────────────────────────
-            # If the model is uniformly uncertain (high entropy), skip
-            # this frame's prediction entirely rather than smoothing
-            # noise into the deque.
+           
             if entropy > ENTROPY_THRESHOLD:
-                # Don't add to deque; model is confused this frame
                 pass
             else:
                 pred_deque.append((pred_idx, pred_conf, pred))
