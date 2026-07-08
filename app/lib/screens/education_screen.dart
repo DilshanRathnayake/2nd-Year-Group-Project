@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
+import '../models/education_item.dart';
+import 'education_video_list_screen.dart';
 
 class EducationScreen extends StatelessWidget {
   const EducationScreen({super.key});
 
-  static const List<String> _categories = [
-    'VERBS',
-    'NOUNS',
-    'PLACES',
-    'OBJECTS',
-    'DAYS',
-    'TEXT',
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final categories = educationCategories.keys.toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text('EDUCATION')),
       body: SafeArea(
@@ -23,13 +18,13 @@ class EducationScreen extends StatelessWidget {
             children: [
               Image.asset(
                 'assets/images/educa.png',
-                height: 220,
+                height: 200,
                 fit: BoxFit.contain,
               ),
               const SizedBox(height: 24),
               Expanded(
                 child: GridView.builder(
-                  itemCount: _categories.length,
+                  itemCount: categories.length,
                   gridDelegate:
                   const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
@@ -38,10 +33,18 @@ class EducationScreen extends StatelessWidget {
                     childAspectRatio: 2.2,
                   ),
                   itemBuilder: (context, index) {
-                    final label = _categories[index];
+                    final category = categories[index];
                     return ElevatedButton(
                       onPressed: () {
-                        // TODO: category ekata anuwa navigate karanna
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EducationVideoListScreen(
+                              category: category,
+                              items: educationCategories[category] ?? [],
+                            ),
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF29C8F2),
@@ -51,10 +54,10 @@ class EducationScreen extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        label,
+                        category,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                          fontSize: 16,
                         ),
                       ),
                     );
