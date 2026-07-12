@@ -17,7 +17,7 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
   final _service = TranslateService();
 
   TranslateResult? _result;
-  VideoPlayerController? _videoController;
+  List<VideoPlayerController> _preloadControllers = [];
 
   bool _loading = false;
   bool _videoLoading = false;
@@ -67,10 +67,11 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
 
   Future<void> _disposeVideo() async {
     _loadToken++;
-    final old = _videoController;
-    _videoController = null;
-    old?.removeListener(_handleVideoTick);
-    await old?.dispose();
+    for (var c in _preloadControllers) {
+      c.removeListener(_handleVideoTick);
+      await c.dispose();
+    }
+    _preloadControllers.clear();
   }
 
   Future<void> _loadVideo(int index) async {
@@ -78,53 +79,86 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
     if (index < 0 || index >= videos.length) return;
 
     final token = ++_loadToken;
-    final old = _videoController;
-    old?.removeListener(_handleVideoTick);
-    _videoController = null;
 
-    setState(() {
-      _currentIndex = index;
-      _videoLoading = true;
-      _sequenceFinished = false;
-    });
+    if (index == 0) {
+      setState(() {
+        _currentIndex = 0;
+        _videoLoading = true;
+        _sequenceFinished = false;
+      });
 
-    await old?.dispose();
+      List<VideoPlayerController> tempControllers = [];
+      try {
+        for (int i = 0; i < videos.length; i++) {
+          final c = VideoPlayerController.networkUrl(Uri.parse(videos[i].url));
+          tempControllers.add(c);
+        }
 
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(videos[index].url),
-    );
-    controller.addListener(_handleVideoTick);
+        await tempControllers[0].initialize();
 
-    try {
-      await controller.initialize();
-      if (!mounted || token != _loadToken) {
-        controller.removeListener(_handleVideoTick);
-        await controller.dispose();
-        return;
+        if (!mounted || token != _loadToken) {
+          for (var c in tempControllers) await c.dispose();
+          return;
+        }
+
+        _preloadControllers = tempControllers;
+        _preloadControllers[0].addListener(_handleVideoTick);
+
+        setState(() => _videoLoading = false);
+        await _preloadControllers[0].play();
+
+        _preloadRemainingVideos(token);
+
+      } catch (e) {
+        if (!mounted || token != _loadToken) return;
+        setState(() {
+          _videoLoading = false;
+          _error = 'Video error: $e';
+        });
       }
+    } else {
+      if (_currentIndex < _preloadControllers.length) {
+        _preloadControllers[_currentIndex].removeListener(_handleVideoTick);
+        await _preloadControllers[_currentIndex].pause();
+      }
+
       setState(() {
-        _videoController = controller;
-        _videoLoading = false;
+        _currentIndex = index;
+        _sequenceFinished = false;
       });
-      await controller.play();
-    } catch (e) {
-      controller.removeListener(_handleVideoTick);
-      await controller.dispose();
-      if (!mounted || token != _loadToken) return;
-      setState(() {
-        _videoLoading = false;
-        _error = 'Video error: $e';
-      });
+
+      if (index < _preloadControllers.length) {
+        final controller = _preloadControllers[index];
+        controller.addListener(_handleVideoTick);
+        await controller.seekTo(Duration.zero);
+        await controller.play();
+        if (mounted) setState(() {});
+      }
+    }
+  }
+
+  Future<void> _preloadRemainingVideos(int currentToken) async {
+    for (int i = 1; i < _preloadControllers.length; i++) {
+      if (!mounted || currentToken != _loadToken) return;
+      try {
+        if (!_preloadControllers[i].value.isInitialized) {
+          await _preloadControllers[i].initialize();
+          if (mounted && currentToken == _loadToken && i == _currentIndex) {
+            setState(() {});
+          }
+        }
+      } catch (e) {
+        print("Preload warning: $e");
+      }
     }
   }
 
   void _handleVideoTick() {
-    final controller = _videoController;
+    if (_preloadControllers.isEmpty || _currentIndex >= _preloadControllers.length) return;
+
+    final controller = _preloadControllers[_currentIndex];
     final videos = _result?.videos ?? const <SignVideo>[];
-    if (_autoAdvancing ||
-        controller == null ||
-        !controller.value.isInitialized ||
-        videos.isEmpty) {
+    if (_autoAdvancing || !controller.value.isInitialized || videos.isEmpty) {
       return;
     }
 
@@ -138,7 +172,19 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
     Future<void>.delayed(Duration.zero, () async {
       if (!mounted) return;
       if (_currentIndex + 1 < videos.length) {
-        await _loadVideo(_currentIndex + 1);
+        controller.removeListener(_handleVideoTick);
+        setState(() {
+          _currentIndex++;
+        });
+
+        if (_preloadControllers[_currentIndex].value.isInitialized) {
+          _preloadControllers[_currentIndex].addListener(_handleVideoTick);
+          await _preloadControllers[_currentIndex].seekTo(Duration.zero);
+          await _preloadControllers[_currentIndex].play();
+          if (mounted) setState(() {});
+        } else {
+          await _loadVideo(_currentIndex);
+        }
       } else {
         setState(() => _sequenceFinished = true);
       }
@@ -147,7 +193,8 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
   }
 
   Future<void> _togglePlay() async {
-    final controller = _videoController;
+    if (_preloadControllers.isEmpty || _currentIndex >= _preloadControllers.length) return;
+    final controller = _preloadControllers[_currentIndex];
     if (controller == null || !controller.value.isInitialized) return;
     if (controller.value.isPlaying) {
       await controller.pause();
@@ -214,10 +261,10 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
                 onPressed: _loading ? null : _translate,
                 icon: _loading
                     ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
                     : const Icon(Icons.translate),
                 label: const Text('Translate'),
               ),
@@ -242,9 +289,11 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
   }
 
   Widget _videoPanel() {
-    final controller = _videoController;
+    final hasVideo = _preloadControllers.isNotEmpty &&
+        _currentIndex < _preloadControllers.length &&
+        _preloadControllers[_currentIndex].value.isInitialized;
+    final controller = hasVideo ? _preloadControllers[_currentIndex] : null;
     final videos = _result?.videos ?? const <SignVideo>[];
-    final hasVideo = controller != null && controller.value.isInitialized;
     final current = videos.isEmpty ? null : videos[_currentIndex];
 
     return Container(
@@ -257,14 +306,14 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AspectRatio(
-            aspectRatio: hasVideo ? controller.value.aspectRatio : 16 / 9,
+            aspectRatio: controller != null ? controller.value.aspectRatio : 16 / 9,
             child: ClipRRect(
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(8)),
+              const BorderRadius.vertical(top: Radius.circular(8)),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (hasVideo)
+                  if (controller != null)
                     FittedBox(
                       fit: BoxFit.contain,
                       child: SizedBox(
@@ -280,7 +329,7 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
                       child: _videoLoading
                           ? const CircularProgressIndicator()
                           : const Icon(Icons.sign_language,
-                              color: Colors.white30, size: 54),
+                          color: Colors.white30, size: 54),
                     ),
                   if (_sequenceFinished)
                     Container(
@@ -301,10 +350,10 @@ class _SinhalaToSignViewState extends State<SinhalaToSignView> {
             child: Row(
               children: [
                 IconButton.filledTonal(
-                  onPressed: hasVideo ? _togglePlay : null,
+                  onPressed: controller != null ? _togglePlay : null,
                   tooltip:
-                      hasVideo && controller.value.isPlaying ? 'Pause' : 'Play',
-                  icon: Icon(hasVideo && controller.value.isPlaying
+                  controller != null && controller.value.isPlaying ? 'Pause' : 'Play',
+                  icon: Icon(controller != null && controller.value.isPlaying
                       ? Icons.pause
                       : Icons.play_arrow),
                 ),
