@@ -129,12 +129,11 @@ SignRecognision/
 │   ├── sign_model.tflite        # Transformer seq2seq model (TFLite)
 │   ├── sinhala_vocab.json       # Sinhala word → token ID
 │   ├── sign_vocab.json          # Token ID → video filename
-│   ├── videos/                  # MP4 sign videos, served at /sign-videos/*
+│   ├── videos/                  # MP4 sign videos, served at /sign-videos/* <-- [DOWNLOAD & PLACE VIDEO DATASET HERE]
 │   ├── dataset_generator.py     # Synthetic training corpus generator
 │   ├── dataset.txt              # Generated training sentence corpus
 │   ├── train_model.py           # Transformer training script
-│   ├── test_model.py            # OpenCV-based manual validation harness
-│   └── Dilshan/                 # Dataset source/conversion files
+│   └── test_model.py            # OpenCV-based manual validation harness
 │
 ├── dist/                       # Final release artifacts
 │   └── sign_app_release_<ip>_8000.apk
@@ -163,6 +162,19 @@ SignRecognision/
 - NumPy for vector/array operations
 - OpenCV (`cv2`) for standalone validation/frame rendering
 - Regex-based text normalization for tokenization
+
+---
+
+## Video Dataset Setup (Google Drive)
+
+Since the raw `.mp4` video dataset is too large to host directly on GitHub, it is stored securely on Google Drive. To run the backend server and play sign videos successfully, team members must set up the `videos` directory manually by following these steps:
+
+1. **Download the Video Dataset:** Click the link below to download the compressed sign language videos:
+   * [Download Videos via Google Drive](https://drive.google.com/file/d/1nnX7X9F7i-_guULd_gJ1Zz3FraqnMFpk/view?usp=sharing)
+     
+2. **Extract the Contents:** Extract the downloaded `videos.zip` file. You will get a folder named `videos` containing all the `.mp4` sign language source files.
+
+3. **Placement in Project:** Place the extracted `videos` folder directly inside the `sinhala_sign_ai_part/` directory as shown in the project structure above.
 
 ---
 
