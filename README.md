@@ -7,6 +7,13 @@ The system supports **two independent translation directions**:
 1. **Sign → Sinhala** — Live camera-based sign language recognition, converted into Sinhala text in real time.
 2. **Sinhala → Sign** — Sinhala text input translated into a sequence of sign language videos.
 
+
+## 📹 Demo Video
+
+Watch a full demonstration of the bidirectional Sinhala Sign Language (SSL) translation system in action, including real-time sign-to-Sinhala recognition and Sinhala-to-sign video translation:
+
+🔗 [Watch Demo Video](https://drive.google.com/file/d/1M8t8Gaj5OZBOL7km8epsl5_jKIjlnDvv/view?usp=sharing)
+
 ---
 
 ## Table of Contents
@@ -149,7 +156,7 @@ SignRecognision/
 │   ├── sign_model.tflite               # Transformer seq2seq model (TFLite)
 │   ├── sinhala_vocab.json              # Sinhala word → token ID
 │   ├── sign_vocab.json                 # Token ID → video filename
-│   ├── videos/                         # MP4 sign videos, served at /sign-videos/*
+│   ├── videos/                         # MP4 sign videos, served at /sign-videos/* <-- [DOWNLOAD & PLACE VIDEO DATASET HERE]
 │   ├── dataset_generator.py            # Synthetic training corpus generator
 │   ├── dataset.txt                     # Generated training sentence corpus
 │   ├── train_model.py                  # Transformer training script
@@ -191,6 +198,7 @@ Since the raw `.mp4` video dataset is too large to host directly on GitHub, it i
 
 1. **Download the Video Dataset:** Click the link below to download the compressed sign language videos:
    * [Download Videos via Google Drive](https://drive.google.com/file/d/1nnX7X9F7i-_guULd_gJ1Zz3FraqnMFpk/view?usp=sharing)
+     (Note: Click the Download button when Google Drive shows "Couldn't preview file".)
      
 2. **Extract the Contents:** Extract the downloaded `videos.zip` file. You will get a folder named `videos` containing all the `.mp4` sign language source files.
 
