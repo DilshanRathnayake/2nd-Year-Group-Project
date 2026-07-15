@@ -85,60 +85,80 @@ Sinhala input text is tokenized, mapped through `sinhala_vocab.json`, and passed
 
 ```
 SignRecognision/
-├── app/                        # Flutter Android app (runs on the phone)
+├── app/                                # Flutter Android app (runs on the phone)
+│   ├── pubspec.yaml                    # Dependencies, assets configuration
+│   ├── assets/
+│   │   ├── icon/
+│   │   │   └── appicon.jpeg            # App launcher icon source image
+│   │   ├── images/
+│   │   │   ├── logo.png                # Splash screen logo
+│   │   │   ├── home.png                # Welcome screen illustration
+│   │   │   └── educa.png               # Education screen illustration
+│   │   └── videos/                     # Bundled offline sign videos (Education module)
+│   │       ├── ayubowan.mp4
+│   │       ├── eat.mp4
+│   │       ├── hello.mp4
+│   │       └── ... (52 videos total)
 │   ├── lib/
-│   │   ├── main.dart                    # App entry point → HomeScreen
-│   │   ├── app_config.dart              # Server host storage & URL builder
+│   │   ├── main.dart                   # App entry point → SplashScreen
+│   │   ├── app_config.dart             # Server host storage & URL builder
+│   │   ├── models/
+│   │   │   └── education_item.dart     # Education category/video data model
 │   │   ├── screens/
-│   │   │   ├── home_screen.dart         # Bottom nav: Sign tab / Sinhala tab
-│   │   │   ├── settings_screen.dart     # Server host config + health test
-│   │   │   └── sinhala_to_sign_view.dart# Sinhala text input + video playback
+│   │   │   ├── splash_screen.dart      # Full-screen logo splash screen
+│   │   │   ├── welcome_screen.dart     # Main menu (Sign to Sinhala / Sinhala to Sign / Sign Education)
+│   │   │   ├── home_screen.dart        # Bottom nav: Sign tab / Sinhala tab (camera + WebSocket)
+│   │   │   ├── settings_screen.dart    # Server host config + health test
+│   │   │   ├── sinhala_to_sign_view.dart      # Sinhala text input + video playback
+│   │   │   ├── education_screen.dart          # Category grid (Verbs, Colors, Numbers, etc.)
+│   │   │   ├── education_video_list_screen.dart   # Word list within a category
+│   │   │   └── education_video_player_screen.dart # Single sign video playback with replay
 │   │   └── services/
-│   │       ├── frame_streamer.dart      # Camera capture → JPEG frames
-│   │       ├── sign_socket.dart         # WebSocket client for /ws
-│   │       └── translate_service.dart   # HTTP client for /translate
-│   ├── android/                # Android project files
-│   ├── test/                   # Flutter tests (app_config_test.dart)
-│   └── build/                  # Generated build output
+│   │       ├── frame_streamer.dart     # Camera capture → JPEG frames
+│   │       ├── sign_socket.dart        # WebSocket client for /ws
+│   │       └── translate_service.dart  # HTTP client for /translate
+│   ├── android/                        # Android project files (Gradle, manifest, build config)
+│   ├── test/                           # Flutter tests (app_config_test.dart)
+│   └── build/                          # Generated build output
 │
-├── server/                     # Python FastAPI backend (runs on laptop/PC)
-│   ├── main.py                 # App entry point, defines all routes
-│   ├── recognizer.py           # MediaPipe + GRU live recognition pipeline
-│   ├── model_arch.py           # Keras GRU model architecture
-│   ├── labels.py                # Recognition class list & Sinhala mapping
-│   ├── sinhala_to_sign.py       # Sinhala → sign TFLite inference logic
-│   ├── requirements.txt         # Python dependencies
-│   ├── verify_parity.py         # Verifies .h5 model matches expected behavior
-│   ├── verify_tflite.py         # TFLite behavior verification utility
-│   ├── .venv312/                # Working Python 3.12 virtual environment
-│   ├── debug_frames/            # Debug frame captures
-│   ├── backend.out.log          # Stdout log
-│   └── backend.err.log          # Stderr log
+├── server/                             # Python FastAPI backend (runs on laptop/PC)
+│   ├── main.py                         # App entry point, defines all routes
+│   ├── recognizer.py                   # MediaPipe + GRU live recognition pipeline
+│   ├── model_arch.py                   # Keras GRU model architecture
+│   ├── labels.py                       # Recognition class list & Sinhala mapping
+│   ├── sinhala_to_sign.py              # Sinhala → sign TFLite inference logic
+│   ├── requirements.txt                # Python dependencies
+│   ├── verify_parity.py                # Verifies .h5 model matches expected behavior
+│   ├── verify_tflite.py                # TFLite behavior verification utility
+│   ├── .venv312/                       # Working Python 3.12 virtual environment
+│   ├── debug_frames/                   # Debug frame captures
+│   ├── backend.out.log                 # Stdout log
+│   └── backend.err.log                 # Stderr log
 │
-├── model/                      # Sign → Sinhala trained weights
+├── model/                              # Sign → Sinhala trained weights
 │   └── best_model_weights.weights_new.h5
 │
-├── model creation/             # Training & demo code for the recognition model
+├── model creation/                     # Training & demo code for the recognition model
 │   ├── train.py
-│   ├── real_time_demo.py       # Reference desktop pipeline for parity checks
+│   ├── real_time_demo.py               # Reference desktop pipeline for parity checks
 │   ├── gru_model.py
 │   ├── extract_keypoints.py
-│   └── dataset_keypoints/      # Keypoint dataset (greetings, verbs, colors, etc.)
+│   └── dataset_keypoints/              # Keypoint dataset (greetings, verbs, colors, etc.)
 │
-├── sinhala_sign_ai_part/       # Sinhala → Sign model, vocab, videos
-│   ├── sign_model.tflite        # Transformer seq2seq model (TFLite)
-│   ├── sinhala_vocab.json       # Sinhala word → token ID
-│   ├── sign_vocab.json          # Token ID → video filename
-│   ├── videos/                  # MP4 sign videos, served at /sign-videos/* <-- [DOWNLOAD & PLACE VIDEO DATASET HERE]
-│   ├── dataset_generator.py     # Synthetic training corpus generator
-│   ├── dataset.txt              # Generated training sentence corpus
-│   ├── train_model.py           # Transformer training script
-│   └── test_model.py            # OpenCV-based manual validation harness
+├── sinhala_sign_ai_part/               # Sinhala → Sign model, vocab, videos
+│   ├── sign_model.tflite               # Transformer seq2seq model (TFLite)
+│   ├── sinhala_vocab.json              # Sinhala word → token ID
+│   ├── sign_vocab.json                 # Token ID → video filename
+│   ├── videos/                         # MP4 sign videos, served at /sign-videos/*
+│   ├── dataset_generator.py            # Synthetic training corpus generator
+│   ├── dataset.txt                     # Generated training sentence corpus
+│   ├── train_model.py                  # Transformer training script
+│   └── test_model.py                   # OpenCV-based manual validation harness
 │
-├── dist/                       # Final release artifacts
+├── dist/                               # Final release artifacts
 │   └── sign_app_release_<ip>_8000.apk
 │
-└── tmp/                        # Local/testing helper files
+└── tmp/                                # Local/testing helper files
 ```
 
 > **⚠️ Handle with care:** `server/recognizer.py`, `server/model_arch.py`, `server/labels.py`, and `model/best_model_weights.weights_new.h5` directly affect sign recognition accuracy. Only change these when intentionally retraining or modifying the recognition model.
